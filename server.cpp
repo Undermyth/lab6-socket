@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <ios>
 #include <iostream>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <sstream>
 #include <string>
@@ -35,6 +36,29 @@ const string ClientList::getClientList() const {
     return oss.str();
 }
 
+std::string getIPAddress() {
+    char hostName[256];
+    char ipAddress[INET_ADDRSTRLEN];
+    struct hostent *hostEntry;
+    int hostnameSuccess = gethostname(hostName, sizeof(hostName));
+    if (hostnameSuccess != 0) {
+        // 处理获取主机名失败的情况
+        return "";
+    }
+    hostEntry = gethostbyname(hostName);
+    if (hostEntry == nullptr) {
+        // 处理获取主机信息失败的情况
+        return "";
+    }
+    char *ipAddressPtr = inet_ntoa(*((struct in_addr *)hostEntry->h_addr_list[0]));
+    if (ipAddressPtr == nullptr) {
+        // 处理获取IP地址失败的情况
+        return "";
+    }
+    std::strcpy(ipAddress, ipAddressPtr);
+    return std::string(ipAddress);
+}
+
 AppServer::AppServer(int port): port(port) {
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd == -1) {
@@ -46,8 +70,8 @@ AppServer::AppServer(int port): port(port) {
     sockaddr_in server_sock;
     server_sock.sin_family          = AF_INET;
     server_sock.sin_port            = htons(port);
-    server_sock.sin_addr.s_addr     = inet_addr("127.0.0.1");
-    int bindres = bind(sockfd, (struct sockaddr*)&server_sock, sizeof(server_sock));
+    server_sock.sin_addr.s_addr     = inet_addr(getIPAddress().c_str());
+    int bindres = ::bind(sockfd, (struct sockaddr*)&server_sock, sizeof(server_sock));
     if (bindres == -1) {
         cerr << "Server: failed to bind to port " << port << ". Please check if the port is usable." << endl;
         exit(1);
